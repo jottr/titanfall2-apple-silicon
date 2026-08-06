@@ -18,7 +18,7 @@ on Steam and your own EA account.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # 2. this repo
-git clone https://github.com/jottr/gptk-bootstrap.git && cd gptk-bootstrap
+git clone https://github.com/jottr/titanfall2-apple-silicon.git && cd titanfall2-apple-silicon
 
 # 3. run — repeat after each HUMAN STEP it prints
 ./bootstrap.sh
