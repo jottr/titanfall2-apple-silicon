@@ -11,6 +11,29 @@ vendor (Sikarugir via Homebrew, Steam from Valve's CDN, the EA app from EA's
 CDN, with a pinned SHA-256). You need your own purchased copy of Titanfall 2
 on Steam and your own EA account.
 
+## Quickstart
+
+```sh
+# 1. arm64 Homebrew (skip if `brew --prefix` already prints /opt/homebrew)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. this repo
+git clone https://github.com/jottr/gptk-bootstrap.git && cd gptk-bootstrap
+
+# 3. run — repeat after each HUMAN STEP it prints
+./bootstrap.sh
+```
+
+The script installs the two casks/formulae it needs itself, so these are
+informational — run them by hand only if you want them ahead of time:
+
+```sh
+brew install --cask Sikarugir-App/sikarugir/sikarugir   # Wine + D3DMetal
+brew install msitools                                   # msiextract, for the EA MSI
+```
+
+Rosetta is installed automatically by the preflight phase if missing.
+
 ## Requirements
 
 - Apple Silicon Mac, macOS 15+ (tested: M1 Pro / 16 GB / macOS 26)
