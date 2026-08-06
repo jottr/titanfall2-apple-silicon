@@ -24,6 +24,11 @@ git clone https://github.com/jottr/gptk-bootstrap.git && cd gptk-bootstrap
 ./bootstrap.sh
 ```
 
+The first HUMAN STEP is wrapper creation, which is GUI-only — follow
+[Wrapper creation, click by click](#wrapper-creation-click-by-click) when the
+script stops there. The other two are Steam login/install and the one-time EA
+login; see [Usage](#usage) for the full list.
+
 The script installs the two casks/formulae it needs itself, so these are
 informational — run them by hand only if you want them ahead of time:
 
