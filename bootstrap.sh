@@ -69,12 +69,9 @@ deps() {
 wrapper() {
   say wrapper
   [ -d "$WRAPPER" ] && { echo "ok ($WRAPPER)"; return; }
-  human "In 'Sikarugir Creator' (/Applications):
-  1. Install engine ${ENGINE} + latest wrapper version when prompted
-  2. Create New Blank Wrapper named '$(basename "${WRAPPER%.app}")'
-  3. Open the wrapper's Configure window:
-     - tick 'Direct3D to Metal translation layer - (D3DMetal)'
-     - Winetricks: install vcrun2010, vcrun2012, vcrun2022 (Silent on, then Run)"
+  human "Create the wrapper in 'Sikarugir Creator' (/Applications) — engine
+  ${ENGINE}, blank wrapper '$(basename "${WRAPPER%.app}")', D3DMetal, vcruns.
+  Follow README.md > 'Wrapper creation, click by click'."
 }
 
 steam() {

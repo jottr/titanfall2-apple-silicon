@@ -27,8 +27,7 @@ on Steam and your own EA account.
 Run it repeatedly: each run advances as far as it can, then prints the next
 **HUMAN STEP** and exits. The human steps, in order:
 
-1. **Wrapper creation** (~6 clicks in Sikarugir Creator: engine download, blank
-   wrapper, D3DMetal toggle, three winetricks runtimes)
+1. **Wrapper creation** — GUI only; see the click-by-click walkthrough below
 2. **Steam login + Titanfall 2 install** (your credentials, ~64 GB download)
 3. First launch: **EA account login** (once; the session persists)
 
@@ -36,9 +35,43 @@ Everything else — dependency installs, silent Steam setup, the EA bypass
 (download, verify, extract, file placement, registry, service), launch
 configuration — is automated. `./bootstrap.sh status` shows progress.
 
+### Wrapper creation, click by click
+
+Sikarugir has no CLI for this part, so it's done once in its GUI:
+
+1. Open **Sikarugir Creator** from `/Applications` (installed by the script).
+2. On first run it offers engines and wrapper versions to download. Install:
+   - the latest **Wrapper** version, and
+   - the engine **`WS12WineSikarugir10.0_6`** (top of the list; ignore the
+     `CX`/`GPTK`/`WhiskyWine`/`WS11` entries — the GPTK engine in particular
+     crashes on this game's EA auth).
+3. Click **Create New Blank Wrapper**, name it exactly **`Titanfall2`**
+   (the script expects `~/Applications/Sikarugir/Titanfall2.app`; if you pick
+   another name, run the script with `WRAPPER=... ` set). Wrapper creation
+   takes a minute; ignore any "Support Ending for Intel-based Apps" macOS
+   notification — Wine engines are x86 by nature and run via Rosetta.
+4. When it's done, the wrapper is at `~/Applications/Sikarugir/`. Double-click
+   it — since no Windows app is set yet, its **Configure** window opens.
+5. In the Configuration tab, tick
+   **"Direct3D to Metal translation layer - (D3DMetal)"**.
+   Leave DXMT and DXVK unticked.
+6. Click **Winetricks** (bottom row). In the search field type `vcrun`, then
+   tick **`vcrun2010`**, **`vcrun2012`**, and **`vcrun2022`**. Keep **Silent**
+   checked and press **Run**. Microsoft installer windows may flash by;
+   wait until the spinner settles — all three must finish.
+7. Close the Winetricks and Configure windows, and re-run `./bootstrap.sh`.
+
 When it finishes, double-clicking the wrapper launches the game directly:
 Steam runs headless (`-no-browser`), and the EA app auto-authenticates in the
 background.
+
+### Getting back into the wrapper's settings
+
+Once the wrapper is configured to boot the game, double-clicking no longer
+opens its Configure window. The side door: right-click `Titanfall2.app` →
+**Show Package Contents** → `Contents/` → double-click **`Configure.app`**.
+That reopens the Configure window (backend toggles, Winetricks, launch
+field, env vars like `MTL_HUD_ENABLED=1` for an FPS overlay).
 
 ## How the EA bypass works
 

@@ -6,8 +6,7 @@ Record of the working path and what failed on the way. Companion to
 ## Outcome
 
 Titanfall 2 (Steam copy) campaign **running** under Sikarugir. EA login
-smooth. Performance: first session choppy (shader warm-up + Steam CEF
-contention); `-no-browser` flags applied, re-measure pending.
+smooth. First session choppy (shader compilation warm-up); runs well after.
 
 ## Working stack
 
@@ -50,10 +49,8 @@ sha256 `c8f68016bd03c414a873d34b796cdc1f9b4ea6cdebb51720d3c429d95cb1ca94`.
   worked). **Bundled-installer swap** (ProtonDB fix): Proton-only — the MSI
   configure step it relies on is exactly what's broken under CrossOver Wine.
 
-## Open items
+## Note on steam-cpu-handoff.md
 
-- [ ] Framerate at 1080p Low/High (campaign), `MTL_HUD_ENABLED=1`
-- [ ] Post-`-no-browser` CPU/RSS re-measure (baseline: 160–240% / 1.9 GB idle
-      — see `steam-cpu-handoff.md`; note its steam.exe mystery load was the
-      TF2 download, not idle churn)
-- [ ] Verify `-no-browser` actually suppressed steamwebhelper on current build
+Its "idle" steam.exe mystery load turned out to be the TF2 download in
+progress, not idle churn. The `-no-browser -silent` mitigation is applied
+via the wrapper's launch flags.
