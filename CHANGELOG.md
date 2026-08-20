@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.2.0 - 2026-08-20
+## [0.2.0] - 2026-08-20
 
 ### Added
 
@@ -30,7 +30,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - The 80 GB free-space check blocked every run on a full disk. It now gates
   only the first install, so repair runs still work.
 
-## 0.1.0 - 2026-08-06
+## [0.1.0] - 2026-08-06
 
 ### Added
 
@@ -42,3 +42,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - README with a quickstart, a click-by-click wrapper walkthrough, EA version
   bump instructions, and a troubleshooting table.
 - MIT license.
+
+[0.2.0]: https://github.com/jottr/titanfall2-apple-silicon/releases/tag/v0.2.0
+[0.1.0]: https://github.com/jottr/titanfall2-apple-silicon/releases/tag/v0.1.0
