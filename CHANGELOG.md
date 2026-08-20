@@ -5,6 +5,24 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `watchdog` phase. The wrapper now runs a supervisor inside the prefix instead
+  of Steam directly. It starts Steam, waits for the game, and ends the Windows
+  session when the game exits — so quitting the game also quits Steam and the
+  EA services, menubar icons included. Replaces the `launch-flags` phase, which
+  only set the Steam arguments the supervisor now carries.
+- `stop` phase. It ends a running session politely (`wineboot -e -s`), and
+  signals only the processes that do not answer. It is also the recovery path
+  for a session whose wineserver died: those processes ignore SIGTERM and hold
+  their menubar icons until something kills them.
+- The wrapper clears such leftovers at launch too, before Wine starts. A live
+  session is left alone, so a second double-click cannot kill a running game.
+- `status` reports whether a session is running, and whether its wineserver is
+  alive.
+
 ## [0.2.0] - 2026-08-20
 
 ### Added

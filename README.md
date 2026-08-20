@@ -63,6 +63,10 @@ Everything else — dependency installs, silent Steam setup, the EA bypass
 (download, verify, extract, file placement, registry, service), save location,
 launch configuration — is automated. `./bootstrap.sh status` shows progress.
 
+Quit the game and the whole stack goes with it: Steam, the EA services, and
+their menubar icons. That is one command away if it ever does not —
+`./bootstrap.sh stop`.
+
 Every phase is idempotent, so re-run the script any time something breaks. It
 repairs an existing install rather than reinstalling it.
 
@@ -94,7 +98,8 @@ Sikarugir has no CLI for this part, so it's done once in its GUI:
 
 When it finishes, double-clicking the wrapper launches the game directly:
 Steam runs headless (`-no-browser`), and the EA app auto-authenticates in the
-background.
+background. Quitting the game ends the session — see
+[Starting and stopping](#starting-and-stopping).
 
 ### Getting back into the wrapper's settings
 
@@ -103,6 +108,31 @@ opens its Configure window. The side door: right-click `Titanfall2.app` →
 **Show Package Contents** → `Contents/` → double-click **`Configure.app`**.
 That reopens the Configure window (backend toggles, Winetricks, launch
 field, env vars like `MTL_HUD_ENABLED=1` for an FPS overlay).
+
+## Starting and stopping
+
+Double-click the wrapper to play. Quit the game and everything stops with it.
+
+That is not automatic under Wine. The wrapper is a background-only app, so it
+has no Dock icon and no Cmd-Q, and Steam never exits on its own — quitting the
+game used to leave Steam and two EA services running as menubar icons. So the
+wrapper does not run Steam directly. It runs `C:\launch.cmd`, a supervisor the
+`watchdog` phase writes into the prefix. The supervisor starts Steam, waits for
+the game to appear, waits for it to exit, then ends the Windows session
+(`wineboot -e -s`). Steam and the EA app get the standard end-session message,
+save their state, and quit. Their menubar icons go with them.
+
+Two things can still leave processes behind: a crash that takes out the
+wineserver, and a forced kill. Wine processes that lose their wineserver keep
+running, answer nothing, and hold their menubar icons forever. Two safeguards
+cover that:
+
+- The wrapper clears them at the next launch, before Wine starts. A live
+  session is never touched, so a second double-click cannot kill a running
+  game.
+- `./bootstrap.sh stop` clears them at any time. It ends the session politely
+  when it can, and signals only what does not answer. `./bootstrap.sh status`
+  reports whether a session is running and whether its wineserver is alive.
 
 ## How the EA bypass works
 
@@ -174,6 +204,7 @@ EA_MSI="EAapp-<version>-<buildid>.msi" ./bootstrap.sh ea-bypass
 | EA login window blank/white | In the wrapper config, switch D3DMetal → DXMT; add `d3dcompiler_47` via winetricks |
 | Choppy first session | Shader compilation warm-up — play 10–15 min, it settles |
 | Steam window never appears | Post-update silent restart; quit fully and relaunch the wrapper |
+| Steam or EA icon sits in the menubar and ignores clicks | A session whose wineserver died — run `./bootstrap.sh stop` |
 | Game won't save | Keep the game on `C:` (it can't save across drives) |
 
 ## Changelog
