@@ -176,6 +176,12 @@ EA_MSI="EAapp-<version>-<buildid>.msi" ./bootstrap.sh ea-bypass
 | Steam window never appears | Post-update silent restart; quit fully and relaunch the wrapper |
 | Game won't save | Keep the game on `C:` (it can't save across drives) |
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. Check it
+first if the setup worked before and stopped working — EA-side updates are the
+usual cause, and the fixes land there.
+
 ## Known limitations
 
 - Singleplayer focus. Multiplayer via [Northstar](https://northstar.tf/) is
