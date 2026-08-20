@@ -4,7 +4,7 @@
 # broken-under-Wine installer (INST-14-1627, since ~2026-03).
 #
 # Usage: ./bootstrap.sh [phase]    (no arg = run all phases in order)
-# Phases: preflight deps wrapper steam ea-bypass launch-flags status
+# Phases: preflight deps wrapper steam ea-bypass saves launch-flags status
 # Idempotent — re-run after completing each HUMAN step.
 set -euo pipefail
 
@@ -18,6 +18,9 @@ EA_MSI="${EA_MSI:-EAapp-${EA_VERSION}-14790298.msi}"
 EA_MSI_URL="https://origin-a.akamaihd.net/EA-Desktop-Client-Download/installer-releases/${EA_MSI}"
 EA_MSI_SHA256="c8f68016bd03c414a873d34b796cdc1f9b4ea6cdebb51720d3c429d95cb1ca94" # for the pinned default only
 STEAM_URL="https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe"
+# Save location. Anywhere outside ~/Documents, ~/Desktop and ~/Downloads works —
+# those three need a macOS privacy grant the wrapper cannot ask for twice.
+SAVES="${SAVES:-$HOME/Library/Application Support/Titanfall2}"
 TF2_APPID=1237970
 TMP="${TMPDIR:-/tmp}"
 
@@ -138,6 +141,31 @@ ea-bypass() {
   echo "ok"
 }
 
+saves() {
+  say saves
+  # Titanfall 2 writes saves to the Windows "My Documents" folder, which Wine
+  # maps to ~/Documents — behind a macOS privacy prompt. Denying that prompt
+  # leaves EA unable to see any local save (ErrorCloudDataCorruptedNoLocal) and
+  # it blocks the launch on a "Cloud data is corrupted" dialog. Point the folder
+  # somewhere outside ~/Documents so the game needs no Documents grant at all.
+  mkdir -p "$SAVES"
+  local old="$HOME/Documents/Respawn"
+  if [ -d "$old" ]; then
+    if [ -e "$SAVES/Respawn" ]; then
+      echo "WARN: saves in both $old and $SAVES/Respawn — leaving the old copy alone"
+    else
+      mv "$old" "$SAVES/Respawn"; echo "moved $old -> $SAVES/Respawn"
+    fi
+  fi
+
+  no_wine_running || die "quit Steam/the wrapper first — registry edits need Wine stopped"
+  local reg="$TMP/tf2-saves.$$.reg"
+  saves_reg > "$reg"
+  wine regedit /S "$reg"; wine_wait; rm -f "$reg"
+  grep -qF "$(saves_win)" "$PREFIX/user.reg" || die "shell-folder pin failed"
+  echo "ok ($SAVES)"
+}
+
 launch-flags() {
   say launch-flags
   /usr/libexec/PlistBuddy -c "Set \"Program Flags\" \"-no-browser -silent -applaunch $TF2_APPID\"" \
@@ -152,7 +180,26 @@ status() {
     "steam"          "$([ -f "$C/Program Files (x86)/Steam/steam.exe" ] && echo yes || echo no)" \
     "titanfall2"     "$([ -d "$C/Program Files (x86)/Steam/steamapps/common/Titanfall2" ] && echo yes || echo no)" \
     "ea bypass"      "$([ -f "$EA_LINK/EADesktop.exe" ] && echo "yes ($(basename "$(dirname "$(readlink "$EA_LINK")")"))" || echo no)" \
+    "saves"          "$(grep -qF "$(saves_win)" "$PREFIX/user.reg" 2>/dev/null && echo "$SAVES" || echo "NOT pinned (~/Documents — needs a macOS grant)")" \
     "launch flags"   "$(/usr/libexec/PlistBuddy -c 'Print "Program Flags"' "$WRAPPER/Contents/Info.plist" 2>/dev/null || echo unset)"
+}
+
+saves_win() { # $SAVES as a .reg-ready Windows path (Z: is Wine's view of /)
+  # .reg string values need doubled backslashes; sed, because bash's ${//} eats
+  # its own escaping and silently emits single ones
+  printf '%s' "Z:${SAVES//\//\\}" | sed 's/\\/\\\\/g'
+}
+
+saves_reg() { # both keys — apps read either one
+  cat <<EOF
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders]
+"Personal"="$(saves_win)"
+
+[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders]
+"Personal"="$(saves_win)"
+EOF
 }
 
 ea_newest() { # newest complete versioned EA dir, ignoring the symlink itself
@@ -227,5 +274,5 @@ EOF
 
 # ---- main --------------------------------------------------------------------
 if [ $# -gt 0 ]; then "$1"; else
-  preflight; deps; wrapper; steam; ea-bypass; launch-flags; status
+  preflight; deps; wrapper; steam; ea-bypass; saves; launch-flags; status
 fi

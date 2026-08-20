@@ -60,8 +60,8 @@ Run it repeatedly: each run advances as far as it can, then prints the next
 3. First launch: **EA account login** (once; the session persists)
 
 Everything else — dependency installs, silent Steam setup, the EA bypass
-(download, verify, extract, file placement, registry, service), launch
-configuration — is automated. `./bootstrap.sh status` shows progress.
+(download, verify, extract, file placement, registry, service), save location,
+launch configuration — is automated. `./bootstrap.sh status` shows progress.
 
 Every phase is idempotent, so re-run the script any time something breaks. It
 repairs an existing install rather than reinstalling it.
@@ -135,6 +135,18 @@ version. Re-run it after any EA update to repair the damage:
 ./bootstrap.sh ea-bypass
 ```
 
+## Where saves live
+
+Titanfall 2 writes saves to the Windows "My Documents" folder, which Wine maps
+to `~/Documents`. macOS guards that folder with a privacy prompt. If you deny
+the prompt, the EA app sees no local save, and it stops the launch on a "Cloud
+data is corrupted" dialog.
+
+The `saves` phase avoids the prompt. It points the Windows folder at
+`~/Library/Application Support/Titanfall2`, which needs no grant, and moves any
+existing `~/Documents/Respawn` there. Override with `SAVES=...` — any path
+outside `~/Documents`, `~/Desktop` and `~/Downloads` works.
+
 ## Bumping the EA version
 
 An EA-app update may eventually demand a newer version than the pinned
@@ -157,6 +169,7 @@ EA_MSI="EAapp-<version>-<buildid>.msi" ./bootstrap.sh ea-bypass
 | Symptom | Fix |
 |---|---|
 | Worked before, now Steam says `Failed running GameID … (OS Error 0)` | The EA app self-updated and broke its own install — run `./bootstrap.sh ea-bypass` |
+| `Cloud data is corrupted` dialog, launch stops there | Saves are unreachable — run `./bootstrap.sh saves` |
 | `INST-14-1627` at game launch | Bypass not applied or EA version bumped — see above |
 | EA login window blank/white | In the wrapper config, switch D3DMetal → DXMT; add `d3dcompiler_47` via winetricks |
 | Choppy first session | Shader compilation warm-up — play 10–15 min, it settles |
