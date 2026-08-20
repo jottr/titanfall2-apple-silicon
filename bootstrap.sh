@@ -23,8 +23,13 @@ TMP="${TMPDIR:-/tmp}"
 
 PREFIX="$WRAPPER/Contents/SharedSupport/prefix"
 C="$PREFIX/drive_c"
-EA_BASE_WIN="C:\\Program Files\\Electronic Arts\\EA Desktop\\${EA_VERSION}\\EA Desktop"
-EA_BASE="$C/Program Files/Electronic Arts/EA Desktop/${EA_VERSION}"
+# EA installs each version into its own dir and points an unversioned symlink at
+# the active one; everything else (registry, its own destager) resolves through
+# that symlink. Stage into the versioned dir, then link it.
+EA_ROOT="$C/Program Files/Electronic Arts/EA Desktop"
+EA_BASE_WIN="C:\\Program Files\\Electronic Arts\\EA Desktop\\EA Desktop"
+EA_STAGE="$EA_ROOT/${EA_VERSION}"
+EA_LINK="$EA_ROOT/EA Desktop"
 
 say()  { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 die()  { printf '\033[31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -49,8 +54,12 @@ preflight() {
   say preflight
   [ "$(uname -sm)" = "Darwin arm64" ] || die "needs an Apple Silicon Mac"
   [ "$(sw_vers -productVersion | cut -d. -f1)" -ge 15 ] || die "needs macOS 15+ (AVX under Rosetta)"
-  local free; free=$(df -g /System/Volumes/Data | awk 'NR==2{print $4}')
-  [ "$free" -ge 80 ] || die "need >=80 GB free, have ${free} GB"
+  # only gates the ~64 GB first install — re-runs repair an existing one, and
+  # blocking those on free space makes the recovery path unusable when it matters
+  if [ ! -d "$C/Program Files (x86)/Steam/steamapps/common/Titanfall2" ]; then
+    local free; free=$(df -g /System/Volumes/Data | awk 'NR==2{print $4}')
+    [ "$free" -ge 80 ] || die "need >=80 GB free for the install, have ${free} GB"
+  fi
   pgrep -q oahd || softwareupdate --install-rosetta --agree-to-license
   command -v brew >/dev/null || die "Homebrew (arm64) required: https://brew.sh"
   echo "ok"
@@ -91,25 +100,36 @@ steam() {
 
 ea-bypass() {
   say ea-bypass
-  [ -f "$EA_BASE/EA Desktop/EADesktop.exe" ] && { echo "ok (already staged)"; return; }
   no_wine_running || die "quit Steam/the wrapper first — registry edits need Wine stopped"
 
-  if [ ! -f "$TMP/$EA_MSI" ]; then curl -fL -o "$TMP/$EA_MSI" "$EA_MSI_URL"; fi
-  if [ "$EA_MSI" = "EAapp-13.759.2.6273-14790298.msi" ]; then
-    echo "$EA_MSI_SHA256  $TMP/$EA_MSI" | shasum -a 256 -c - || die "MSI checksum mismatch"
-  else
-    echo "WARN: non-default EA version — no pinned checksum, trusting TLS + EA host"
+  if [ ! -f "$EA_STAGE/EA Desktop/EADesktop.exe" ]; then
+    if [ ! -f "$TMP/$EA_MSI" ]; then curl -fL -o "$TMP/$EA_MSI" "$EA_MSI_URL"; fi
+    if [ "$EA_MSI" = "EAapp-13.759.2.6273-14790298.msi" ]; then
+      echo "$EA_MSI_SHA256  $TMP/$EA_MSI" | shasum -a 256 -c - || die "MSI checksum mismatch"
+    else
+      echo "WARN: non-default EA version — no pinned checksum, trusting TLS + EA host"
+    fi
+
+    local x="$TMP/ea-extract.$$"
+    mkdir -p "$x"; (cd "$x" && msiextract "$TMP/$EA_MSI" >/dev/null)
+    mkdir -p "$EA_STAGE" "$C/Program Files (x86)/Origin"
+    cp -R "$x/Electronic Arts/EA Desktop/EA Desktop" "$EA_STAGE/"
+    for shim in Origin.exe OriginClient.exe OriginClientService.exe; do
+      cp "$x/Electronic Arts/EA Desktop/EA Desktop/OriginLegacyCompatibility.exe" \
+         "$C/Program Files (x86)/Origin/$shim"
+    done
+    rm -rf "$x"
   fi
 
-  local x="$TMP/ea-extract.$$"
-  mkdir -p "$x"; (cd "$x" && msiextract "$TMP/$EA_MSI" >/dev/null)
-  mkdir -p "$EA_BASE" "$C/Program Files (x86)/Origin"
-  cp -R "$x/Electronic Arts/EA Desktop/EA Desktop" "$EA_BASE/"
-  for shim in Origin.exe OriginClient.exe OriginClientService.exe; do
-    cp "$x/Electronic Arts/EA Desktop/EA Desktop/OriginLegacyCompatibility.exe" \
-       "$C/Program Files (x86)/Origin/$shim"
-  done
-  rm -rf "$x"
+  # Point the symlink at the newest staged version. The EA app self-updates by
+  # staging a new versioned dir and swapping this symlink — a step its destager
+  # cannot do under Wine (destage code 21), after which it blanks the link2ea
+  # handler and every path in the registry dangles. Re-running repairs that.
+  if [ -d "$EA_LINK" ] && [ ! -L "$EA_LINK" ]; then
+    echo "note: $EA_LINK is a real directory (EA destaged it itself) — leaving it"
+  else
+    ln -sfn "$(ea_newest)/EA Desktop" "$EA_LINK"
+  fi
 
   local reg="$TMP/ea-bypass.$$.reg"
   ea_reg > "$reg"
@@ -131,8 +151,19 @@ status() {
     "wrapper"        "$([ -d "$WRAPPER" ] && echo yes || echo no)" \
     "steam"          "$([ -f "$C/Program Files (x86)/Steam/steam.exe" ] && echo yes || echo no)" \
     "titanfall2"     "$([ -d "$C/Program Files (x86)/Steam/steamapps/common/Titanfall2" ] && echo yes || echo no)" \
-    "ea bypass"      "$([ -f "$EA_BASE/EA Desktop/EADesktop.exe" ] && echo yes || echo no)" \
+    "ea bypass"      "$([ -f "$EA_LINK/EADesktop.exe" ] && echo "yes ($(basename "$(dirname "$(readlink "$EA_LINK")")"))" || echo no)" \
     "launch flags"   "$(/usr/libexec/PlistBuddy -c 'Print "Program Flags"' "$WRAPPER/Contents/Info.plist" 2>/dev/null || echo unset)"
+}
+
+ea_newest() { # newest complete versioned EA dir, ignoring the symlink itself
+  local d best=""
+  for d in "$EA_ROOT"/*/; do
+    [ -L "${d%/}" ] && continue
+    [ -f "$d/EA Desktop/EADesktop.exe" ] || continue
+    best="$(printf '%s\n%s\n' "$best" "${d%/}" | sort -V | tail -1)"
+  done
+  [ -n "$best" ] || die "no staged EA Desktop under $EA_ROOT — re-run ea-bypass"
+  printf '%s\n' "$best"
 }
 
 ea_reg() { # registry recipe (CodeWeavers forum, 2026-03) parametrized on version

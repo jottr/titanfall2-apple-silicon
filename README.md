@@ -63,6 +63,9 @@ Everything else — dependency installs, silent Steam setup, the EA bypass
 (download, verify, extract, file placement, registry, service), launch
 configuration — is automated. `./bootstrap.sh status` shows progress.
 
+Every phase is idempotent, so re-run the script any time something breaks. It
+repairs an existing install rather than reinstalling it.
+
 ### Wrapper creation, click by click
 
 Sikarugir has no CLI for this part, so it's done once in its GUI:
@@ -116,6 +119,22 @@ payload at the path a real install uses, and writes the registry state +
 produced (recipe from a March 2026 CodeWeavers forum report, parametrized).
 The game's bundled EA stub then sees a healthy install and proceeds to login.
 
+### Surviving EA's self-updates
+
+The EA app updates itself, and its updater expects the active client at an
+unversioned symlink, `EA Desktop\EA Desktop`. It stages the new version into a
+versioned folder next to that symlink, then swaps the symlink over. Under Wine
+the swap fails (`destage code[21]`). The updater then points every registry
+path at the now-missing symlink and blanks the `link2ea` protocol handler, so
+Steam's launch dies with `OS Error 0` before the EA app starts.
+
+So `ea-bypass` creates that symlink itself and aims it at the newest staged
+version. Re-run it after any EA update to repair the damage:
+
+```sh
+./bootstrap.sh ea-bypass
+```
+
 ## Bumping the EA version
 
 An EA-app update may eventually demand a newer version than the pinned
@@ -137,6 +156,7 @@ EA_MSI="EAapp-<version>-<buildid>.msi" ./bootstrap.sh ea-bypass
 
 | Symptom | Fix |
 |---|---|
+| Worked before, now Steam says `Failed running GameID … (OS Error 0)` | The EA app self-updated and broke its own install — run `./bootstrap.sh ea-bypass` |
 | `INST-14-1627` at game launch | Bypass not applied or EA version bumped — see above |
 | EA login window blank/white | In the wrapper config, switch D3DMetal → DXMT; add `d3dcompiler_47` via winetricks |
 | Choppy first session | Shader compilation warm-up — play 10–15 min, it settles |
