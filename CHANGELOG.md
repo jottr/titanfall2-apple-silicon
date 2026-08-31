@@ -9,11 +9,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- `watchdog` phase. The wrapper now runs a supervisor inside the prefix instead
-  of Steam directly. It starts Steam, waits for the game, and ends the Windows
-  session when the game exits — so quitting the game also quits Steam and the
-  EA services, menubar icons included. Replaces the `launch-flags` phase, which
-  only set the Steam arguments the supervisor now carries.
+- `watchdog` phase. The wrapper now runs a supervisor alongside Steam: it waits
+  for the game, and ends the Windows session when the game exits — so quitting
+  the game also quits Steam and the EA services, menubar icons included. It runs
+  on the macOS side; a Windows batch file would need a console, and that console
+  window lands on top of the EA activation window the game shows at launch.
+  Replaces the `launch-flags` phase, which only set the Steam arguments the
+  wrapper now passes itself.
+- `./test-watchdog.sh` self-check for the supervisor.
 - `stop` phase. It ends a running session politely (`wineboot -e -s`), and
   signals only the processes that do not answer. It is also the recovery path
   for a session whose wineserver died: those processes ignore SIGTERM and hold

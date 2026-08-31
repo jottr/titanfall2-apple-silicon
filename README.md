@@ -116,11 +116,22 @@ Double-click the wrapper to play. Quit the game and everything stops with it.
 That is not automatic under Wine. The wrapper is a background-only app, so it
 has no Dock icon and no Cmd-Q, and Steam never exits on its own — quitting the
 game used to leave Steam and two EA services running as menubar icons. So the
-wrapper does not run Steam directly. It runs `C:\launch.cmd`, a supervisor the
-`watchdog` phase writes into the prefix. The supervisor starts Steam, waits for
-the game to appear, waits for it to exit, then ends the Windows session
-(`wineboot -e -s`). Steam and the EA app get the standard end-session message,
-save their state, and quit. Their menubar icons go with them.
+`watchdog` phase gives the session a supervisor: a background loop the wrapper's
+`StartupScript` starts before Wine does. It waits for the game to appear, waits
+for it to exit, then ends the Windows session (`wineboot -e -s`). Steam and the
+EA app get the standard end-session message, save their state, and quit. Their
+menubar icons go with them.
+
+The supervisor runs on the macOS side, not inside the prefix. A Windows batch
+file would need a console, and that console window opens on top of the EA
+activation window the game shows at launch — a black window, no visible way
+forward, the game waiting on a dialog behind it. Nothing Windows-side is needed
+anyway: `ps` reports a Wine process under its Windows path, so the game is as
+visible from macOS as it is from `tasklist`.
+
+`./test-watchdog.sh` checks the supervisor against a fake wrapper: it must end
+the session when the game exits, end it when Steam exits before any game
+appears, and never end one that got as far as playing.
 
 Two things can still leave processes behind: a crash that takes out the
 wineserver, and a forced kill. Wine processes that lose their wineserver keep
