@@ -32,7 +32,9 @@ WRAPPER="$app" ./bootstrap.sh watchdog >/dev/null
 
 # fakes: lsof reports "a session exists", ps reports what is in it
 printf '#!/bin/sh\n[ -s "%s" ] && echo 1\n' "$state" > "$root/bin/lsof"
-printf '#!/bin/sh\ncat "%s"\n' "$state"              > "$root/bin/ps"
+# (the supervisor pid check asks the real ps)
+printf '#!/bin/sh\ncase "$*" in *command=*) exec /bin/ps "$@";; esac\ncat "%s"\n' \
+  "$state" > "$root/bin/ps"
 printf '#!/bin/sh\nexec /bin/sleep %s\n' "$TICK"     > "$root/bin/sleep"
 printf '#!/bin/sh\necho "$*" > "%s"\n' "$torndown" \
   > "$app/Contents/SharedSupport/wine/bin/wine"
@@ -69,6 +71,13 @@ set_state "$IDLE"; start
 [ "$(readlink "$ea/EA Desktop")" = "$ea/13.778.0-1/EA Desktop" ] ||
   { echo "FAIL: EA link is $(readlink "$ea/EA Desktop")" >&2; exit 1; }
 echo "ok: dangling EA link repaired"
+settle
+
+# 5. a second launch stops the first launch's supervisor
+set_state "$IDLE"; start; first=$(cat "$app/Contents/SharedSupport/supervisor.pid")
+start; settle
+! kill -0 "$first" 2>/dev/null || { echo "FAIL: old supervisor still running" >&2; exit 1; }
+echo "ok: relaunch replaces the old supervisor"
 settle
 
 # 3. a session that never starts is not a session to tear down

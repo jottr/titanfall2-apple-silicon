@@ -21,8 +21,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   signals only the processes that do not answer. It is also the recovery path
   for a session whose wineserver died: those processes ignore SIGTERM and hold
   their menubar icons until something kills them.
-- The wrapper clears such leftovers at launch too, before Wine starts. A live
-  session is left alone, so a second double-click cannot kill a running game.
+- The wrapper clears such leftovers at launch too, before Wine starts. It also
+  ends a session that is still live, and that session's supervisor, so a stuck
+  session cannot block the next launch. A second double-click during a game
+  ends that game.
 - `status` reports whether a session is running, and whether its wineserver is
   alive.
 

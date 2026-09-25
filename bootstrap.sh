@@ -228,19 +228,28 @@ cd "$(dirname "$0")/../../"
 CONTENTSFOLD="$PWD"
 
 marker="$CONTENTSFOLD/SharedSupport/wine/lib/wine/x86_64-windows/apisetschema.dll"
-# A live session means the user double-clicked twice — leave it strictly alone.
-pgrep -qf "$CONTENTSFOLD/.*wineserver" && exit 0
-# Clear a previous session's leftovers. Only signals can reach those — their
-# wineserver is gone, so they answer to nothing else, and their menubar icons
-# never go away on their own.
+pidfile="$CONTENTSFOLD/SharedSupport/supervisor.pid"
+export WINEPREFIX="$CONTENTSFOLD/SharedSupport/prefix"
+export DYLD_FALLBACK_LIBRARY_PATH="$CONTENTSFOLD/Frameworks:$CONTENTSFOLD/SharedSupport/wine/lib"
+wine() { "$CONTENTSFOLD/SharedSupport/wine/bin/wine" "$@"; }
+
+# A launch replaces whatever session is still there: a stuck one (Steam waiting
+# for a game that never came) must not block the next double-click. Its
+# supervisor goes first — it would read its game's exit as the cue to end the
+# new session. The ps check guards against a recycled pid.
+old=$(cat "$pidfile" 2>/dev/null)
+[ -n "$old" ] && ps -p "$old" -o command= 2>/dev/null | grep -q StartupScript &&
+  kill "$old" 2>/dev/null
+# Politely first, so Steam and EA save state; only with a live server, since
+# against a dead prefix wineboot BOOTS it instead.
+if pgrep -qf "$CONTENTSFOLD/.*wineserver"; then
+  wine wineboot -e -s >/dev/null 2>&1
+  "$CONTENTSFOLD/SharedSupport/wine/bin/wineserver" -k >/dev/null 2>&1
+fi
+# Whatever is left lost its wineserver and answers only to signals; left alone,
+# it holds its menubar icon forever.
 stale=$(lsof -t "$marker" 2>/dev/null)
 [ -n "$stale" ] && kill -9 $stale 2>/dev/null
-
-wine() {
-  WINEPREFIX="$CONTENTSFOLD/SharedSupport/prefix" \
-  DYLD_FALLBACK_LIBRARY_PATH="$CONTENTSFOLD/Frameworks:$CONTENTSFOLD/SharedSupport/wine/lib" \
-  "$CONTENTSFOLD/SharedSupport/wine/bin/wine" "$@"
-}
 
 # The EA app self-updates by staging a new versioned dir and swapping the
 # "EA Desktop" symlink, a swap its destager cannot do under Wine. The link then
@@ -300,6 +309,7 @@ grep -A2 -F '[Software\\Classes\\link2ea\\shell\\open\\command]' \
   [ -n "$(lsof -t "$marker" 2>/dev/null)" ] || exit 0
   wine wineboot -e -s
 ) >/dev/null 2>&1 &
+echo $! > "$pidfile"
 
 exit 0
 SH

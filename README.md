@@ -138,9 +138,10 @@ wineserver, and a forced kill. Wine processes that lose their wineserver keep
 running, answer nothing, and hold their menubar icons forever. Two safeguards
 cover that:
 
-- The wrapper clears them at the next launch, before Wine starts. A live
-  session is never touched, so a second double-click cannot kill a running
-  game.
+- The wrapper clears them at the next launch, before Wine starts. A launch
+  also ends a session that is still live, politely first, so a stuck session
+  cannot block the next double-click. A second double-click during a game
+  therefore ends that game.
 - `./bootstrap.sh stop` clears them at any time. It ends the session politely
   when it can, and signals only what does not answer. `./bootstrap.sh status`
   reports whether a session is running and whether its wineserver is alive.
