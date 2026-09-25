@@ -73,6 +73,16 @@ set_state "$IDLE"; start
 echo "ok: dangling EA link repaired"
 settle
 
+# 6. EA breaks itself mid-session: the supervisor repairs it on its next poll
+set_state "$IDLE" "$STEAM"; start; settle
+mkdir -p "$ea/13.796.0-1/EA Desktop"; : > "$ea/13.796.0-1/EA Desktop/EADesktop.exe"
+rm -rf "$ea/13.778.0-1/EA Desktop"; settle
+[ "$(readlink "$ea/EA Desktop")" = "$ea/13.796.0-1/EA Desktop" ] ||
+  { echo "FAIL: mid-session EA link is $(readlink "$ea/EA Desktop")" >&2; exit 1; }
+grep -q 'reg add' "$torndown" || { echo "FAIL: link2ea handler not restored" >&2; exit 1; }
+echo "ok: mid-session EA breakage repaired"
+set_state "$IDLE"; settle
+
 # 5. a second launch stops the first launch's supervisor
 set_state "$IDLE"; start; first=$(cat "$app/Contents/SharedSupport/supervisor.pid")
 start; settle

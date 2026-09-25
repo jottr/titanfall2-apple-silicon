@@ -32,8 +32,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - After an EA self-update, Steam showed "There is no Windows program configured
   to open this type of file" and the game did not start. The update left the
-  `EA Desktop` symlink dangling and the `link2ea` handler blank. The wrapper now
-  repairs both at each launch, before Wine starts.
+  `EA Desktop` symlink dangling and the `link2ea` handler blank. EA runs such
+  updates in the background, often minutes into a session. The supervisor now
+  repairs both within 5 seconds of the damage, and the wrapper checks again at
+  each launch.
 - `ea-bypass` downloaded the pinned EA MSI again when the EA app had already
   updated past it. It now uses any complete staged version.
 

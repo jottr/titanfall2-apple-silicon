@@ -251,21 +251,27 @@ fi
 stale=$(lsof -t "$marker" 2>/dev/null)
 [ -n "$stale" ] && kill -9 $stale 2>/dev/null
 
-# The EA app self-updates by staging a new versioned dir and swapping the
-# "EA Desktop" symlink, a swap its destager cannot do under Wine. The link then
-# dangles, EA blanks the link2ea handler, and Steam's launch of the game fails
-# with "no Windows program configured". Repair both before Wine starts; this is
-# what ./bootstrap.sh ea-bypass does, minus the MSI.
-ea="$CONTENTSFOLD/SharedSupport/prefix/drive_c/Program Files/Electronic Arts/EA Desktop"
-if [ -L "$ea/EA Desktop" ]; then
+# The EA app self-updates in the background, often minutes into a session. Its
+# destager moves the active version's folder aside, then fails to swap the
+# "EA Desktop" symlink under Wine (code 21). The link dangles, EA blanks the
+# link2ea handler, and Steam's launch of the game fails with "There is no
+# Windows program configured to open this type of file". Repair both: point the
+# link at the newest complete version, and restore the handler. This is what
+# ./bootstrap.sh ea-bypass does, minus the MSI.
+ea="$WINEPREFIX/drive_c/Program Files/Electronic Arts/EA Desktop"
+ea_broken() { [ -L "$ea/EA Desktop" ] && [ ! -f "$ea/EA Desktop/EADesktop.exe" ]; }
+ea_repair() {
   new=$(ls -d "$ea"/*/"EA Desktop/EADesktop.exe" 2>/dev/null | sort -V | tail -1)
   [ -n "$new" ] && ln -sfn "$(dirname "$new")" "$ea/EA Desktop"
-fi
-grep -A2 -F '[Software\\Classes\\link2ea\\shell\\open\\command]' \
-  "$CONTENTSFOLD/SharedSupport/prefix/system.reg" 2>/dev/null | grep -qx '@=""' &&
   wine reg add 'HKLM\Software\Classes\link2ea\shell\open\command' /ve /f \
     /d '"C:\Program Files\Electronic Arts\EA Desktop\EA Desktop\Link2EA.exe" "%1"' \
     >/dev/null 2>&1
+}
+# At launch the server is down, so system.reg on disk is current.
+if ea_broken || grep -A2 -F '[Software\\Classes\\link2ea\\shell\\open\\command]' \
+     "$WINEPREFIX/system.reg" 2>/dev/null | grep -qx '@=""'; then
+  ea_repair
+fi
 
 # Supervise this session in the background; Wine has not started yet.
 (
@@ -278,6 +284,9 @@ grep -A2 -F '[Software\\Classes\\link2ea\\shell\\open\\command]' \
     [ -n "$pids" ] || return 1
     ps -p $pids -o comm= 2>/dev/null | grep -qxF "$1"
   }
+  # Mid-session, system.reg lags the live registry, so trust only the link.
+  # EA breaks both in the same second.
+  tick() { ea_broken && ea_repair; sleep 5; }
 
   # Phase 1: wait for Steam to register. Until it has, "Steam is gone" below
   # cannot tell "not up yet" from "quit", and the cold-start race would tear the
@@ -288,18 +297,18 @@ grep -A2 -F '[Software\\Classes\\link2ea\\shell\\open\\command]' \
   until up "$steam" || up "$game"; do
     n=$((n + 1))
     [ "$n" -ge 120 ] && exit 0  # nothing came up — nothing to tear down
-    sleep 5
+    tick
   done
 
   # Phase 2: wait for the game. Steam vanishing now is a real exit (failed
   # launch, or quit during the EA login) — go straight to teardown.
   until up "$game"; do
     up "$steam" || break
-    sleep 5
+    tick
   done
 
   # Phase 3: game is up — poll until it exits.
-  while up "$game"; do sleep 5; done
+  while up "$game"; do tick; done
 
   # WM_QUERYENDSESSION/WM_ENDSESSION: Steam and EA save state and quit
   # themselves, their tray icons go with them, wineserver exits with the last
