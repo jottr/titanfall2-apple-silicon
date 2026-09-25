@@ -60,6 +60,17 @@ set_state "$IDLE"; start; settle
 set_state "$IDLE" "$STEAM"; settle;            no  "waiting for the game"
 set_state "$IDLE"; settle;                     ok  "Steam exit tears down"
 
+# 4. an EA self-update left the symlink dangling: launch repoints it to the newest
+ea="$app/Contents/SharedSupport/prefix/drive_c/Program Files/Electronic Arts/EA Desktop"
+mkdir -p "$ea/13.768.7-1" "$ea/13.768.7-2/EA Desktop" "$ea/13.778.0-1/EA Desktop"
+: > "$ea/13.768.7-2/EA Desktop/EADesktop.exe"; : > "$ea/13.778.0-1/EA Desktop/EADesktop.exe"
+ln -s "$ea/13.768.7-1/EA Desktop" "$ea/EA Desktop"
+set_state "$IDLE"; start
+[ "$(readlink "$ea/EA Desktop")" = "$ea/13.778.0-1/EA Desktop" ] ||
+  { echo "FAIL: EA link is $(readlink "$ea/EA Desktop")" >&2; exit 1; }
+echo "ok: dangling EA link repaired"
+settle
+
 # 3. a session that never starts is not a session to tear down
 set_state "$IDLE"; start; /bin/sleep 8;        no  "give up quietly"
 

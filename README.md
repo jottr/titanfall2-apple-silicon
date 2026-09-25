@@ -210,6 +210,7 @@ EA_MSI="EAapp-<version>-<buildid>.msi" ./bootstrap.sh ea-bypass
 | Symptom | Fix |
 |---|---|
 | Worked before, now Steam says `Failed running GameID … (OS Error 0)` | The EA app self-updated and broke its own install — run `./bootstrap.sh ea-bypass` |
+| `There is no Windows program configured to open this type of file` | Same cause. The next launch repairs it; if not, run `./bootstrap.sh ea-bypass` |
 | `Cloud data is corrupted` dialog, launch stops there | Saves are unreachable — run `./bootstrap.sh saves` |
 | `INST-14-1627` at game launch | Bypass not applied or EA version bumped — see above |
 | EA login window blank/white | In the wrapper config, switch D3DMetal → DXMT; add `d3dcompiler_47` via winetricks |

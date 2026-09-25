@@ -143,7 +143,9 @@ ea-bypass() {
   say ea-bypass
   no_wine_running || die "quit Steam/the wrapper first — registry edits need Wine stopped"
 
-  if [ ! -f "$EA_STAGE/EA Desktop/EADesktop.exe" ]; then
+  # Any complete version will do: once EA self-updated past the pin, the repair
+  # below only needs the symlink and registry, not a fresh MSI.
+  if ! (ea_newest) >/dev/null 2>&1; then
     if [ ! -f "$TMP/$EA_MSI" ]; then curl -fL -o "$TMP/$EA_MSI" "$EA_MSI_URL"; fi
     if [ "$EA_MSI" = "EAapp-13.759.2.6273-14790298.msi" ]; then
       echo "$EA_MSI_SHA256  $TMP/$EA_MSI" | shasum -a 256 -c - || die "MSI checksum mismatch"
@@ -234,6 +236,28 @@ pgrep -qf "$CONTENTSFOLD/.*wineserver" && exit 0
 stale=$(lsof -t "$marker" 2>/dev/null)
 [ -n "$stale" ] && kill -9 $stale 2>/dev/null
 
+wine() {
+  WINEPREFIX="$CONTENTSFOLD/SharedSupport/prefix" \
+  DYLD_FALLBACK_LIBRARY_PATH="$CONTENTSFOLD/Frameworks:$CONTENTSFOLD/SharedSupport/wine/lib" \
+  "$CONTENTSFOLD/SharedSupport/wine/bin/wine" "$@"
+}
+
+# The EA app self-updates by staging a new versioned dir and swapping the
+# "EA Desktop" symlink, a swap its destager cannot do under Wine. The link then
+# dangles, EA blanks the link2ea handler, and Steam's launch of the game fails
+# with "no Windows program configured". Repair both before Wine starts; this is
+# what ./bootstrap.sh ea-bypass does, minus the MSI.
+ea="$CONTENTSFOLD/SharedSupport/prefix/drive_c/Program Files/Electronic Arts/EA Desktop"
+if [ -L "$ea/EA Desktop" ]; then
+  new=$(ls -d "$ea"/*/"EA Desktop/EADesktop.exe" 2>/dev/null | sort -V | tail -1)
+  [ -n "$new" ] && ln -sfn "$(dirname "$new")" "$ea/EA Desktop"
+fi
+grep -A2 -F '[Software\\Classes\\link2ea\\shell\\open\\command]' \
+  "$CONTENTSFOLD/SharedSupport/prefix/system.reg" 2>/dev/null | grep -qx '@=""' &&
+  wine reg add 'HKLM\Software\Classes\link2ea\shell\open\command' /ve /f \
+    /d '"C:\Program Files\Electronic Arts\EA Desktop\EA Desktop\Link2EA.exe" "%1"' \
+    >/dev/null 2>&1
+
 # Supervise this session in the background; Wine has not started yet.
 (
   steam='C:\Program Files (x86)\Steam\steam.exe'
@@ -274,9 +298,7 @@ stale=$(lsof -t "$marker" 2>/dev/null)
   # Only against a live session — on a dead prefix wineboot BOOTS one instead,
   # replaying the EA app's pending installers.
   [ -n "$(lsof -t "$marker" 2>/dev/null)" ] || exit 0
-  WINEPREFIX="$CONTENTSFOLD/SharedSupport/prefix" \
-  DYLD_FALLBACK_LIBRARY_PATH="$CONTENTSFOLD/Frameworks:$CONTENTSFOLD/SharedSupport/wine/lib" \
-  "$CONTENTSFOLD/SharedSupport/wine/bin/wine" wineboot -e -s
+  wine wineboot -e -s
 ) >/dev/null 2>&1 &
 
 exit 0

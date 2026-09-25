@@ -26,6 +26,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - `status` reports whether a session is running, and whether its wineserver is
   alive.
 
+### Fixed
+
+- After an EA self-update, Steam showed "There is no Windows program configured
+  to open this type of file" and the game did not start. The update left the
+  `EA Desktop` symlink dangling and the `link2ea` handler blank. The wrapper now
+  repairs both at each launch, before Wine starts.
+- `ea-bypass` downloaded the pinned EA MSI again when the EA app had already
+  updated past it. It now uses any complete staged version.
+
 ## [0.2.0] - 2026-08-20
 
 ### Added
